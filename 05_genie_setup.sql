@@ -9,7 +9,7 @@
 -- COMMAND ----------
 
 COMMENT ON TABLE oracle_finance.gold.agg_stores_aging IS
-  'Stores and spares inventory aging for Maple Leaf Cement plants. One row per
+  'Stores and spares inventory aging for Cement plants. One row per
    item per plant. Contains current stock position, age since receipt, movement
    status, cost variance, and cross-plant redundancy flags. Values are Pakistani
    Rupees. Synthetic demo data.';
@@ -56,7 +56,7 @@ COMMENT ON COLUMN oracle_finance.gold.agg_stores_aging.redistribution_candidate 
 -- MAGIC `silver.dim_organization`. Paste the following into **Instructions**:
 -- MAGIC
 -- MAGIC ```
--- MAGIC This data covers stores and spares inventory at three Maple Leaf Cement plants.
+-- MAGIC This data covers stores and spares inventory at three Cement plants.
 -- MAGIC
 -- MAGIC Vocabulary:
 -- MAGIC - "plant", "site", "location", "unit" all mean org_code
@@ -74,7 +74,7 @@ COMMENT ON COLUMN oracle_finance.gold.agg_stores_aging.redistribution_candidate 
 -- MAGIC - Sort results by value descending unless asked otherwise.
 -- MAGIC
 -- MAGIC This is synthetic demonstration data. Do not present figures as actual
--- MAGIC Maple Leaf financial results.
+-- MAGIC financial results.
 -- MAGIC ```
 
 -- COMMAND ----------

@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "5"
+# ///
 # MAGIC %md
 # MAGIC # 01 — Bronze & Silver: Oracle EBS R12 Financials
 # MAGIC
@@ -170,5 +174,3 @@ JOIN {CATALOG}.bronze.xla_ae_headers ah ON ah.AE_HEADER_ID = dl.AE_HEADER_ID
 """)
 
 print("silver layer complete")
-
-# COMMAND ----------
