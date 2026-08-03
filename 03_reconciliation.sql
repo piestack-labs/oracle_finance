@@ -1,13 +1,13 @@
 -- Databricks notebook source
 -- MAGIC %md
--- MAGIC # 03 — Trial-Balance Tie-Out & Operating-Unit Security
+-- MAGIC # 03 — Trial-Balance Tie-Out
 -- MAGIC
--- MAGIC Two things that decide whether Finance accepts the platform:
--- MAGIC can it prove the numbers tie to GL, and does it respect MOAC.
+-- MAGIC Proves the numbers tie to GL. This is the "can we trust it" beat —
+-- MAGIC more important to Finance than speed.
 
 -- COMMAND ----------
 
-USE CATALOG oracle_finance;
+USE CATALOG oracle_finance_v2;
 
 -- COMMAND ----------
 
@@ -21,12 +21,10 @@ USE CATALOG oracle_finance;
 CREATE OR REPLACE TABLE gold.recon_ap_to_gl AS
 WITH ap_side AS (
     SELECT d.period_name,
-           o.org_code,
            COUNT(*)               AS ap_distribution_count,
            ROUND(SUM(d.amount),2) AS ap_amount
     FROM silver.fact_ap_distribution d
-    JOIN silver.dim_organization o ON o.org_id = d.org_id
-    GROUP BY d.period_name, o.org_code
+    GROUP BY d.period_name
 ),
 sla_side AS (
     SELECT b.period_name,
@@ -81,51 +79,3 @@ WHERE d.period_name = 'MAR-26'
   AND a.natural_account = '1310'
 ORDER BY d.amount DESC
 LIMIT 25;
-
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC ## C. Operating-unit security — Free Edition substitute
--- MAGIC
--- MAGIC In production this is a Unity Catalog **row filter** driven by account
--- MAGIC group membership, so a user cannot bypass it. Free Edition has no access
--- MAGIC to the account console and no SCIM, so account groups cannot be created
--- MAGIC and `is_account_group_member()` has nothing to resolve against.
--- MAGIC
--- MAGIC The view below reproduces the *effect* for the demo. Say this out loud
--- MAGIC when you show it — if a technical person is in the room and you imply
--- MAGIC this is enforced security, you lose credibility you will need later.
--- MAGIC
--- MAGIC The production version is in `03_reconciliation_and_security.sql`
--- MAGIC (the non-Free-Edition copy). Run that one on a Trial workspace.
-
--- COMMAND ----------
-
-CREATE WIDGET TEXT persona DEFAULT 'BOARD';
-
--- COMMAND ----------
-
-CREATE OR REPLACE VIEW gold.vw_stores_aging_secured AS
-SELECT * FROM gold.agg_stores_aging
-WHERE CASE
-    WHEN '${persona}' = 'BOARD' THEN TRUE
-    WHEN '${persona}' = 'GCI'   THEN org_code = 'GCI'   -- Grey, Iskanderabad
-    WHEN '${persona}' = 'WCI'   THEN org_code = 'WCI'   -- White, Iskanderabad
-    WHEN '${persona}' = 'GCM'   THEN org_code = 'GCM'   -- Grey, Mianwali
-    ELSE FALSE
-END;
-
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC Change the widget at the top of the notebook and rerun the cell below.
--- MAGIC BOARD sees everything; a plant persona sees only its own rows.
--- MAGIC Same query, same dashboard, no code change — that is the point being made.
-
--- COMMAND ----------
-
-SELECT '${persona}'                             AS running_as,
-       COUNT(DISTINCT org_code)                 AS orgs_visible,
-       COUNT(*)                                 AS rows_visible,
-       ROUND(SUM(onhand_value_avg_cost)/1e6, 1) AS value_visible_pkr_mn
-FROM gold.vw_stores_aging_secured;

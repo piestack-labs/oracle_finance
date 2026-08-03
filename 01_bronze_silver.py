@@ -1,8 +1,4 @@
 # Databricks notebook source
-# /// script
-# [tool.databricks.environment]
-# environment_version = "5"
-# ///
 # MAGIC %md
 # MAGIC # 01 — Bronze & Silver: Oracle EBS R12 Financials
 # MAGIC
@@ -12,8 +8,8 @@
 
 # COMMAND ----------
 
-CATALOG = "oracle_finance"   # Free Edition: single metastore, this is fine
-SOURCE_PATH = "/Volumes/oracle_finance/landing/ebs_extract"   # upload the CSVs here
+CATALOG = "maple_demo"   # Free Edition: single metastore, this is fine
+SOURCE_PATH = "/Volumes/maple_demo/landing/ebs_extract"   # upload the CSVs here
 
 spark.sql(f"CREATE CATALOG IF NOT EXISTS {CATALOG}")
 for schema in ["bronze", "silver", "gold"]:
@@ -34,7 +30,8 @@ TABLES = [
     "ap_suppliers", "ap_invoices_all", "ap_invoice_lines_all",
     "ap_invoice_distributions_all",
     "mtl_system_items_b", "mtl_material_transactions",
-    "mtl_onhand_quantities_detail", "cst_item_costs", "org_security_map",
+    "mtl_onhand_quantities_detail", "cst_item_costs", "unit_security_map",
+    "prod_units", "cc_unit_map",
 ]
 
 for t in TABLES:
@@ -81,9 +78,7 @@ spark.sql(f"""
 CREATE OR REPLACE TABLE {CATALOG}.silver.dim_organization AS
 SELECT ORG_ID AS org_id, ORG_CODE AS org_code, ORG_NAME AS org_name,
        LEDGER_ID AS ledger_id, PLANT_SEGMENT AS plant_code, REGION AS region,
-       CASE WHEN ORG_CODE LIKE 'W%' THEN 'White Cement'
-            WHEN ORG_CODE LIKE 'G%' THEN 'Grey Cement'
-            ELSE 'Corporate' END AS business_line
+       ORG_NAME AS business_line
 FROM {CATALOG}.bronze.hr_operating_units
 """)
 
@@ -97,6 +92,7 @@ SELECT i.INVENTORY_ITEM_ID AS inventory_item_id,
        i.CATEGORY_NAME     AS category_name,
        i.PRIMARY_UOM_CODE  AS uom,
        i.FULL_LEAD_TIME    AS lead_time_days,
+       i.PRIMARY_UNIT_CODE AS primary_unit_code,
        o.org_code, o.region, o.business_line
 FROM {CATALOG}.bronze.mtl_system_items_b i
 JOIN {CATALOG}.silver.dim_organization o ON o.org_id = i.ORGANIZATION_ID
@@ -116,6 +112,7 @@ SELECT TRANSACTION_ID        AS transaction_id,
        TRANSACTION_COST_TOTAL AS txn_value,
        VENDOR_ID             AS vendor_id,
        PO_NUMBER             AS po_number,
+       COST_CENTRE_CODE      AS cost_centre_code,
        date_format(TRANSACTION_DATE, 'yyyy-MM') AS txn_year_month
 FROM {CATALOG}.bronze.mtl_material_transactions
 """)
@@ -174,3 +171,5 @@ JOIN {CATALOG}.bronze.xla_ae_headers ah ON ah.AE_HEADER_ID = dl.AE_HEADER_ID
 """)
 
 print("silver layer complete")
+
+# COMMAND ----------

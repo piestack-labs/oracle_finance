@@ -13,25 +13,25 @@
 
 -- COMMAND ----------
 
-CREATE CATALOG IF NOT EXISTS oracle_finance;
+CREATE CATALOG IF NOT EXISTS maple_demo;
 
 -- COMMAND ----------
 
-CREATE SCHEMA IF NOT EXISTS oracle_finance.landing;
-CREATE SCHEMA IF NOT EXISTS oracle_finance.bronze;
-CREATE SCHEMA IF NOT EXISTS oracle_finance.silver;
-CREATE SCHEMA IF NOT EXISTS oracle_finance.gold;
+CREATE SCHEMA IF NOT EXISTS maple_demo.landing;
+CREATE SCHEMA IF NOT EXISTS maple_demo.bronze;
+CREATE SCHEMA IF NOT EXISTS maple_demo.silver;
+CREATE SCHEMA IF NOT EXISTS maple_demo.gold;
 
 -- COMMAND ----------
 
-CREATE VOLUME IF NOT EXISTS oracle_finance.landing.ebs_extract;
+CREATE VOLUME IF NOT EXISTS maple_demo.landing.ebs_extract;
 
 -- COMMAND ----------
 
 -- MAGIC %md
 -- MAGIC ## Now upload the CSVs
 -- MAGIC
--- MAGIC Catalog → oracle_finance → landing → ebs_extract → **Upload to this volume**
+-- MAGIC Catalog → maple_demo → landing → ebs_extract → **Upload to this volume**
 -- MAGIC
 -- MAGIC Unzip `maple_ebs_demo_data.zip` locally first and upload all 18 files.
 -- MAGIC The largest is `mtl_material_transactions.csv` (~28 MB). If the browser
@@ -41,7 +41,7 @@ CREATE VOLUME IF NOT EXISTS oracle_finance.landing.ebs_extract;
 
 -- COMMAND ----------
 
-LIST '/Volumes/oracle_finance/landing/ebs_extract';
+LIST '/Volumes/maple_demo/landing/ebs_extract';
 
 -- COMMAND ----------
 

@@ -13,7 +13,7 @@
 
 -- COMMAND ----------
 
-USE CATALOG oracle_finance;
+USE CATALOG maple_demo;
 
 -- COMMAND ----------
 
@@ -36,13 +36,18 @@ txn_profile AS (
     FROM silver.fact_material_txn
     GROUP BY inventory_item_id, org_id
 ),
-redundancy AS (
-    -- same item number carried in more than one plant
-    SELECT item_number,
-           COUNT(DISTINCT org_id)               AS stocked_in_orgs,
-           collect_set(org_code)                AS stocked_org_list
-    FROM silver.dim_item
-    GROUP BY item_number
+unit_consumption AS (
+    -- one shared store, but multiple production units draw from it.
+    -- An item charged mainly to one unit but also consumed by another is
+    -- the single-site equivalent of cross-plant redundancy.
+    SELECT t.inventory_item_id,
+           COUNT(DISTINCT u.UNIT_CODE)   AS consuming_units,
+           collect_set(u.UNIT_CODE)      AS consuming_unit_list
+    FROM silver.fact_material_txn t
+    JOIN maple_demo.bronze.cc_unit_map u
+      ON u.COST_CENTRE_CODE = t.cost_centre_code
+    WHERE t.txn_type_id = 33
+    GROUP BY t.inventory_item_id
 )
 SELECT
     i.item_number,
@@ -110,24 +115,24 @@ SELECT
         ELSE 'Active'
     END                                                     AS movement_status,
 
-    COALESCE(rd.stocked_in_orgs, 1)                         AS stocked_in_orgs,
-    rd.stocked_org_list,
-    CASE WHEN COALESCE(rd.stocked_in_orgs, 1) > 1
-              AND COALESCE(t.issue_txn_count, 0) = 0
-         THEN TRUE ELSE FALSE END                           AS redistribution_candidate,
+    i.primary_unit_code,
+    COALESCE(uc.consuming_units, 0)                         AS consuming_units,
+    uc.consuming_unit_list,
+    CASE WHEN COALESCE(uc.consuming_units, 0) > 1
+         THEN TRUE ELSE FALSE END                           AS shared_across_units,
 
     i.org_id
 FROM silver.dim_item i
-JOIN oracle_finance.bronze.mtl_onhand_quantities_detail oh
+JOIN maple_demo.bronze.mtl_onhand_quantities_detail oh
      ON oh.INVENTORY_ITEM_ID = i.inventory_item_id
     AND oh.ORGANIZATION_ID   = i.org_id
-JOIN oracle_finance.bronze.cst_item_costs c
+JOIN maple_demo.bronze.cst_item_costs c
      ON c.INVENTORY_ITEM_ID = i.inventory_item_id
     AND c.ORGANIZATION_ID   = i.org_id
 LEFT JOIN txn_profile t
      ON t.inventory_item_id = i.inventory_item_id
     AND t.org_id            = i.org_id
-LEFT JOIN redundancy rd ON rd.item_number = i.item_number
+LEFT JOIN unit_consumption uc ON uc.inventory_item_id = i.inventory_item_id
 CROSS JOIN ref r;
 
 -- COMMAND ----------
