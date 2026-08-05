@@ -158,18 +158,27 @@ ORDER BY aging_bucket_last_receipt;
 
 -- COMMAND ----------
 
-SELECT item_number, item_description, category_name,
-       SUM(onhand_qty)                            AS total_onhand,
-       ROUND(SUM(onhand_value_avg_cost)/1e6, 2)   AS value_pkr_mn,
-       collect_set(org_code)                      AS held_in,
-       collect_set(movement_status)               AS status_mix
-FROM gold.agg_stores_aging
-WHERE stocked_in_orgs > 1
-GROUP BY item_number, item_description, category_name
-HAVING array_contains(collect_set(movement_status), 'Dead Stock - Never Issued')
-   AND array_contains(collect_set(movement_status), 'Active')
-ORDER BY value_pkr_mn DESC
-LIMIT 50;
+WITH item_status AS (
+  SELECT item_number,
+         MAX(CASE WHEN movement_status = 'Dead Stock - Never Issued' THEN 1 ELSE 0 END) AS has_dead_stock,
+         MAX(CASE WHEN movement_status = 'Active' THEN 1 ELSE 0 END) AS has_active
+  FROM gold.agg_stores_aging
+  WHERE consuming_units > 1
+  GROUP BY item_number
+)
+SELECT
+  a.item_number,
+  ANY_VALUE(a.item_description) AS item_description,
+  ANY_VALUE(a.category_name)    AS category_name,
+  ROUND(SUM(a.onhand_value_avg_cost)/1e6, 2) AS total_value_millions,
+  ANY_VALUE(a.consuming_unit_list) AS consuming_units,
+  ANY_VALUE(a.primary_unit_code)   AS primary_unit
+FROM gold.agg_stores_aging a
+INNER JOIN item_status s ON a.item_number = s.item_number
+WHERE s.has_dead_stock = 1 AND s.has_active = 1
+GROUP BY a.item_number
+ORDER BY total_value_millions DESC
+LIMIT 50
 
 -- COMMAND ----------
 

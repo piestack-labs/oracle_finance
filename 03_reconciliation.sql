@@ -7,7 +7,7 @@
 
 -- COMMAND ----------
 
-USE CATALOG oracle_finance_v2;
+USE CATALOG maple_demo;
 
 -- COMMAND ----------
 

@@ -16,12 +16,13 @@ COMMENT ON TABLE maple_demo.gold.agg_stores_aging IS
 
 -- COMMAND ----------
 
-COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.item_number IS 'Item code from the stores catalogue. The same item number can be stocked at more than one plant.';
+COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.item_number IS 'Item code from the stores catalogue. Maple Leaf has one plant with one stores location, so each item number is a single row.';
 COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.item_description IS 'Plain-language description of the spare part.';
 COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.category_name IS 'Spare part category, for example refractory, bearings, conveyor, electrical.';
-COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.org_code IS 'Plant code. GCI = Grey Cement Iskanderabad, WCI = White Cement Iskanderabad, GCM = Grey Cement Mianwali. Users often say plant, site, or location to mean this.';
-COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.business_line IS 'Grey Cement or White Cement.';
-COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.region IS 'Geographic region of the plant.';
+COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.primary_unit_code IS 'Production unit the item is primarily charged to: GREY (Grey Cement), WHITE (White Cement), PUTTY (HD Putty), or SHARED (plant-wide, no single unit). Users often say unit, production line, or section to mean this.';
+COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.org_code IS 'Operating unit code. Maple Leaf has a single plant, so this is always MLC and carries no filtering value. Use primary_unit_code instead when the user asks about unit, line, or section.';
+COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.business_line IS 'Constant - Maple Leaf Cement, Mianwali. Not useful for grouping; there is only one plant.';
+COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.region IS 'Constant - Mianwali. Not useful for grouping; there is only one plant.';
 
 COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.onhand_qty IS 'Current quantity physically in the stores.';
 COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.onhand_value_avg_cost IS 'DEFAULT MEASURE OF VALUE. Stock value in Rupees at moving average cost. When a user says value, worth, or amount without qualification, use this column.';
@@ -44,8 +45,9 @@ COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.aging_bucket_last_receipt IS 
 COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.aging_bucket_first_receipt IS 'Alternative age band measured from the original receipt. Use only if the user asks about original or first receipt.';
 COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.movement_status IS 'One of: Active, Slow Moving - 6m+, Non-Moving - 12m+, Dead Stock - Never Issued. Dead stock means received but never once consumed.';
 
-COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.stocked_in_orgs IS 'Number of plants holding this item number. Greater than one indicates cross-plant duplication.';
-COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.redistribution_candidate IS 'True when the item is dead stock at this plant and also stocked elsewhere, making internal transfer possible instead of new purchase.';
+COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.consuming_units IS 'Number of distinct production units (GREY, WHITE, PUTTY, SHARED) that have issued this item. Greater than one means the item is drawn by more than one unit, even though it is charged to a single primary unit.';
+COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.consuming_unit_list IS 'The list of production units that have issued this item.';
+COMMENT ON COLUMN maple_demo.gold.agg_stores_aging.shared_across_units IS 'True when consuming_units is greater than one. Use this, or "which items are shared across units", when the user asks about cross-unit consumption or misattributed spares - there is one stores location, so this replaces cross-plant redundancy analysis.';
 
 -- COMMAND ----------
 
@@ -104,12 +106,13 @@ ORDER BY org_code, aging_bucket_last_receipt;
 
 -- COMMAND ----------
 
--- Q: "Which items are dead stock in one plant but active in another?"
+-- Q: "Which items are shared across production units?"
 SELECT item_number, item_description, category_name,
        ROUND(SUM(onhand_value_avg_cost)/1e6, 2) AS value_pkr_mn,
-       collect_set(org_code) AS held_in
+       ANY_VALUE(primary_unit_code)  AS primary_unit,
+       ANY_VALUE(consuming_unit_list) AS consumed_by
 FROM maple_demo.gold.agg_stores_aging
-WHERE stocked_in_orgs > 1
+WHERE consuming_units > 1
 GROUP BY item_number, item_description, category_name
 HAVING array_contains(collect_set(movement_status), 'Dead Stock - Never Issued')
    AND array_contains(collect_set(movement_status), 'Active')
